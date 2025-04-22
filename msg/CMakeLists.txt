@@ -89,6 +89,7 @@ set(msg_files
 	EstimatorSensorBias.msg
 	EstimatorStates.msg
 	EstimatorStatus.msg
+	EstimatorStatusR.msg
 	EstimatorStatusFlags.msg
 	Event.msg
 	FigureEightStatus.msg
@@ -233,9 +234,11 @@ set(msg_files
 	VehicleImuStatus.msg
 	VehicleLandDetected.msg
 	VehicleLocalPosition.msg
+	VehicleLocalPositionR.msg
 	VehicleLocalPositionSetpoint.msg
 	VehicleMagnetometer.msg
 	VehicleOdometry.msg
+	VehicleOdometryR.msg
 	VehicleOpticalFlow.msg
 	VehicleOpticalFlowVel.msg
 	VehicleRatesSetpoint.msg

@@ -1,0 +1,152 @@
+menuconfig MODULES_EKFR
+	bool "ekfr"
+	default n
+	---help---
+		Enable support for ekfr
+
+menuconfig EKFR_VERBOSE_STATUS
+depends on MODULES_EKFR
+	bool "verbose status output"
+	default n
+	depends on !BOARD_CONSTRAINED_MEMORY
+	depends on !BOARD_CONSTRAINED_FLASH
+	---help---
+		ekfr status verbose output.
+
+menuconfig EKFR_MULTI_INSTANCE
+depends on MODULES_EKFR
+        bool "multi-EKF support"
+        default y
+	depends on !BOARD_CONSTRAINED_MEMORY
+	depends on !BOARD_CONSTRAINED_FLASH
+	---help---
+		EKFR support multiple instances and selector.
+
+menuconfig EKFR_AIRSPEED
+depends on MODULES_EKFR
+        bool "airspeed fusion support"
+        default y
+	depends on EKFR_SIDESLIP
+	depends on EKFR_WIND
+	---help---
+		EKFR airspeed fusion support.
+
+menuconfig EKFR_AUX_GLOBAL_POSITION
+depends on MODULES_EKFR
+	bool "aux global position fusion support"
+	default n
+	---help---
+		EKFR auxiliary global position fusion support.
+
+menuconfig EKFR_AUXVEL
+depends on MODULES_EKFR
+        bool "aux velocity fusion support"
+        default y
+	---help---
+		EKFR auxiliary velocity fusion support.
+
+menuconfig EKFR_BAROMETER
+depends on MODULES_EKFR
+	bool "barometer support"
+	default y
+	---help---
+		EKFR barometer support.
+
+menuconfig EKFR_BARO_COMPENSATION
+depends on MODULES_EKFR
+        bool "barometer compensation support"
+        default y
+	depends on EKFR_BAROMETER
+	depends on EKFR_WIND
+	---help---
+		EKFR pressure compensation support.
+
+menuconfig EKFR_DRAG_FUSION
+depends on MODULES_EKFR
+        bool "drag fusion support"
+        default y
+	depends on EKFR_WIND
+	---help---
+		EKFR drag fusion support.
+
+menuconfig EKFR_EXTERNAL_VISION
+depends on MODULES_EKFR
+        bool "external vision (EV) fusion support"
+        default y
+	---help---
+		EKFR external vision (EV) fusion support.
+
+menuconfig EKFR_GNSS
+depends on MODULES_EKFR
+	bool "GNSS fusion support"
+	default y
+	---help---
+		EKFR GNSS fusion support.
+
+menuconfig EKFR_GNSS_YAW
+depends on MODULES_EKFR
+        bool "GNSS yaw fusion support"
+        default y
+	depends on EKFR_GNSS
+	---help---
+		EKFR GNSS yaw fusion support.
+
+menuconfig EKFR_GRAVITY_FUSION
+depends on MODULES_EKFR
+	bool "gravity fusion support"
+	default y
+	---help---
+		EKFR gravity fusion support.
+
+menuconfig EKFR_MAGNETOMETER
+depends on MODULES_EKFR
+	bool "magnetometer support"
+	default y
+	---help---
+		EKFR magnetometer support.
+
+menuconfig EKFR_OPTICAL_FLOW
+depends on MODULES_EKFR
+        bool "optical flow fusion support"
+        default y
+	select EKFR_TERRAIN
+	depends on EKFR_RANGE_FINDER
+	---help---
+		EKFR optical flow fusion support.
+
+menuconfig EKFR_RANGE_FINDER
+depends on MODULES_EKFR
+        bool "range finder fusion support"
+        default y
+	---help---
+		EKFR range finder fusion support.
+
+menuconfig EKFR_SIDESLIP
+depends on MODULES_EKFR
+        bool "sideslip fusion support"
+        default y
+	depends on EKFR_WIND
+	---help---
+		EKFR sideslip fusion support.
+
+menuconfig EKFR_TERRAIN
+depends on MODULES_EKFR
+	bool "terrain estimator support"
+	default y
+	depends on EKFR_OPTICAL_FLOW || EKFR_RANGE_FINDER
+	---help---
+		EKFR terrain estimator support.
+
+menuconfig EKFR_WIND
+depends on MODULES_EKFR
+	bool "wind estimation support"
+	default y
+	---help---
+		EKFR wind estimation support.
+
+menuconfig USER_EKFR
+	bool "ekfr running as userspace module"
+	default n
+	depends on BOARD_PROTECTED && MODULES_EKFR
+	---help---
+		Put ekfr in userspace memory
