@@ -49,6 +49,8 @@ EKF2Selector::EKF2Selector() :
 	_vehicle_global_position_pub.advertise();
 	_vehicle_local_position_pub.advertise();
 	_vehicle_odometry_pub.advertise();
+	_vehicle_local_position_r_pub.advertise();
+	_vehicle_odometry_r_pub.advertise();
 	_wind_pub.advertise();
 }
 
@@ -62,6 +64,7 @@ void EKF2Selector::Stop()
 	for (int i = 0; i < EKF2_MAX_INSTANCES; i++) {
 		_instance[i].estimator_attitude_sub.unregisterCallback();
 		_instance[i].estimator_status_sub.unregisterCallback();
+		_instance[i].estimator_status_r_sub.unregisterCallback();
 	}
 
 	ScheduleClear();
@@ -121,12 +124,14 @@ bool EKF2Selector::SelectInstance(uint8_t ekf_instance)
 			// switch callback registration
 			_instance[_selected_instance].estimator_attitude_sub.unregisterCallback();
 			_instance[_selected_instance].estimator_status_sub.unregisterCallback();
+			_instance[_selected_instance].estimator_status_r_sub.unregisterCallback();
 
 			PrintInstanceChange(_selected_instance, ekf_instance);
 		}
 
 		_instance[ekf_instance].estimator_attitude_sub.registerCallback();
 		_instance[ekf_instance].estimator_status_sub.registerCallback();
+		_instance[ekf_instance].estimator_status_r_sub.registerCallback();
 
 		_selected_instance = ekf_instance;
 		_instance_changed_count++;
@@ -802,6 +807,8 @@ void EKF2Selector::Run()
 	PublishVehicleGlobalPosition();
 	PublishVehicleOdometry();
 	PublishWindEstimate();
+	PublishVehicleLocalPositionR();
+	PublishVehicleOdometryR();
 
 	// re-schedule as backup timeout
 	ScheduleDelayed(FILTER_UPDATE_PERIOD);
@@ -835,6 +842,164 @@ void EKF2Selector::PublishEstimatorSelectorStatus()
 	selector_status.timestamp = hrt_absolute_time();
 	_estimator_selector_status_pub.publish(selector_status);
 	_last_status_publish = selector_status.timestamp;
+}
+
+void EKF2Selector::PublishVehicleLocalPositionR()
+{
+	// selected estimator_local_position -> vehicle_local_position
+	vehicle_local_position_r_s local_position;
+
+	if (_instance[_selected_instance].estimator_local_position_r_sub.update(&local_position)) {
+		bool instance_change = false;
+
+		if (_instance[_selected_instance].estimator_local_position_r_sub.get_instance() != _local_position_instance_prev) {
+			_local_position_instance_prev = _instance[_selected_instance].estimator_local_position_r_sub.get_instance();
+			instance_change = true;
+		}
+
+		if (_local_position_r_last.timestamp != 0) {
+			// XY reset
+			if (!instance_change && (local_position.xy_reset_counter == _local_position_r_last.xy_reset_counter + 1)) {
+				++_xy_reset_counter;
+				_delta_xy_reset = Vector2f{local_position.delta_xy};
+
+			} else if (instance_change || (local_position.xy_reset_counter != _local_position_r_last.xy_reset_counter)) {
+				++_xy_reset_counter;
+				_delta_xy_reset = Vector2f{local_position.x, local_position.y} - Vector2f{_local_position_r_last.x, _local_position_r_last.y};
+			}
+
+			// Z reset
+			if (!instance_change && (local_position.z_reset_counter == _local_position_r_last.z_reset_counter + 1)) {
+				++_z_reset_counter;
+				_delta_z_reset = local_position.delta_z;
+
+			} else if (instance_change || (local_position.z_reset_counter != _local_position_r_last.z_reset_counter)) {
+				++_z_reset_counter;
+				_delta_z_reset = local_position.z - _local_position_r_last.z;
+			}
+
+			// VXY reset
+			if (!instance_change && (local_position.vxy_reset_counter == _local_position_r_last.vxy_reset_counter + 1)) {
+				++_vxy_reset_counter;
+				_delta_vxy_reset = Vector2f{local_position.delta_vxy};
+
+			} else if (instance_change || (local_position.vxy_reset_counter != _local_position_r_last.vxy_reset_counter)) {
+				++_vxy_reset_counter;
+				_delta_vxy_reset = Vector2f{local_position.vx, local_position.vy} - Vector2f{_local_position_r_last.vx, _local_position_r_last.vy};
+			}
+
+			// VZ reset
+			if (!instance_change && (local_position.vz_reset_counter == _local_position_r_last.vz_reset_counter + 1)) {
+				++_vz_reset_counter;
+				_delta_vz_reset = local_position.delta_vz;
+
+			} else if (instance_change || (local_position.vz_reset_counter != _local_position_r_last.vz_reset_counter)) {
+				++_vz_reset_counter;
+				_delta_vz_reset = local_position.vz - _local_position_r_last.vz;
+			}
+
+			// heading reset
+			if (!instance_change && (local_position.heading_reset_counter == _local_position_r_last.heading_reset_counter + 1)) {
+				++_heading_reset_counter;
+				_delta_heading_reset = local_position.delta_heading;
+
+			} else if (instance_change || (local_position.heading_reset_counter != _local_position_r_last.heading_reset_counter)) {
+				++_heading_reset_counter;
+				_delta_heading_reset = matrix::wrap_pi(local_position.heading - _local_position_r_last.heading);
+			}
+
+		} else {
+			_xy_reset_counter = local_position.xy_reset_counter;
+			_z_reset_counter = local_position.z_reset_counter;
+			_vxy_reset_counter = local_position.vxy_reset_counter;
+			_vz_reset_counter = local_position.vz_reset_counter;
+			_heading_reset_counter = local_position.heading_reset_counter;
+
+			_delta_xy_reset = Vector2f{local_position.delta_xy};
+			_delta_z_reset = local_position.delta_z;
+			_delta_vxy_reset = Vector2f{local_position.delta_vxy};
+			_delta_vz_reset = local_position.delta_vz;
+			_delta_heading_reset = local_position.delta_heading;
+		}
+
+		bool publish = true;
+
+		// ensure monotonically increasing timestamp_sample through reset, don't publish
+		//  estimator's local position for system (vehicle_local_position) if it's stale
+		if ((local_position.timestamp_sample <= _local_position_r_last.timestamp_sample)
+		    || (hrt_elapsed_time(&local_position.timestamp) > 20_ms)) {
+
+			publish = false;
+		}
+
+		// save last primary estimator_local_position as published with original resets
+		_local_position_r_last = local_position;
+
+		if (publish) {
+			// republish with total reset count and current timestamp
+			local_position.xy_reset_counter = _xy_reset_counter;
+			local_position.z_reset_counter = _z_reset_counter;
+			local_position.vxy_reset_counter = _vxy_reset_counter;
+			local_position.vz_reset_counter = _vz_reset_counter;
+			local_position.heading_reset_counter = _heading_reset_counter;
+
+			_delta_xy_reset.copyTo(local_position.delta_xy);
+			local_position.delta_z = _delta_z_reset;
+			_delta_vxy_reset.copyTo(local_position.delta_vxy);
+			local_position.delta_vz = _delta_vz_reset;
+			local_position.delta_heading = _delta_heading_reset;
+
+			local_position.timestamp = hrt_absolute_time();
+			_vehicle_local_position_r_pub.publish(local_position);
+		}
+	}
+}
+
+void EKF2Selector::PublishVehicleOdometryR()
+{
+	// selected estimator_odometry -> vehicle_odometry
+	vehicle_odometry_r_s odometry;
+
+	if (_instance[_selected_instance].estimator_odometry_r_sub.update(&odometry)) {
+
+		bool instance_change = false;
+
+		if (_instance[_selected_instance].estimator_odometry_r_sub.get_instance() != _odometry_instance_prev) {
+			_odometry_instance_prev = _instance[_selected_instance].estimator_odometry_r_sub.get_instance();
+			instance_change = true;
+		}
+
+		if (_odometry_r_last.timestamp != 0) {
+			// reset
+			if (instance_change || (odometry.reset_counter != _odometry_r_last.reset_counter)) {
+				++_odometry_reset_counter;
+			}
+
+		} else {
+			_odometry_reset_counter = odometry.reset_counter;
+		}
+
+		bool publish = true;
+
+		// ensure monotonically increasing timestamp_sample through reset, don't publish
+		//  estimator's odometry for system (vehicle_odometry) if it's stale
+		if ((odometry.timestamp_sample <= _odometry_r_last.timestamp_sample)
+		    || (hrt_elapsed_time(&odometry.timestamp) > 20_ms)) {
+
+			publish = false;
+		}
+
+		// save last primary estimator_odometry as published with original resets
+		_odometry_r_last = odometry;
+
+		if (publish) {
+			// republish with total reset count and current timestamp
+			odometry.reset_counter = _odometry_reset_counter;
+
+			odometry.timestamp = hrt_absolute_time();
+			_vehicle_odometry_r_pub.publish(odometry);
+		}
+	}
 }
 
 void EKF2Selector::PrintStatus()

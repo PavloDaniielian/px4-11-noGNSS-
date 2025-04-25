@@ -228,8 +228,6 @@ set(ORIGINAL_EKF_LIBS
 set(EKFR_SRCS
     EKFR.cpp
     EKFR.hpp
-    EKFRSelector.cpp
-    EKFRSelector.hpp
 )
 
 px4_add_module(

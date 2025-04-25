@@ -44,7 +44,7 @@
 #include "../ekf2/EKF/ekf.h"
 #include "../ekf2/Utility/PreFlightChecker.hpp"
 
-#include "EKFRSelector.hpp"
+#include "../ekf2/EKF2Selector.hpp"
 
 #include <float.h>
 

@@ -55,6 +55,9 @@
 #include <uORB/topics/vehicle_global_position.h>
 #include <uORB/topics/vehicle_odometry.h>
 #include <uORB/topics/wind.h>
+#include <uORB/topics/vehicle_local_position_r.h>
+#include <uORB/topics/estimator_status_r.h>
+#include <uORB/topics/vehicle_odometry_r.h>
 
 #if CONSTRAINED_MEMORY
 # define EKF2_MAX_INSTANCES 2
@@ -90,6 +93,8 @@ private:
 	void PublishVehicleGlobalPosition();
 	void PublishVehicleOdometry();
 	void PublishWindEstimate();
+	void PublishVehicleLocalPositionR();
+	void PublishVehicleOdometryR();
 
 	bool SelectInstance(uint8_t instance);
 
@@ -106,6 +111,9 @@ private:
 			estimator_global_position_sub{ORB_ID(estimator_global_position), i},
 			estimator_odometry_sub{ORB_ID(estimator_odometry), i},
 			estimator_wind_sub{ORB_ID(estimator_wind), i},
+			estimator_local_position_r_sub{ORB_ID(estimator_local_position_r), i},
+			estimator_status_r_sub{selector, ORB_ID(estimator_status_r), i},
+			estimator_odometry_r_sub{ORB_ID(estimator_odometry_r), i},
 			instance(i)
 		{
 			healthy.set_hysteresis_time_from(false, 1_s);
@@ -118,6 +126,10 @@ private:
 		uORB::Subscription estimator_global_position_sub;
 		uORB::Subscription estimator_odometry_sub;
 		uORB::Subscription estimator_wind_sub;
+
+		uORB::Subscription estimator_local_position_r_sub;
+		uORB::SubscriptionCallbackWorkItem estimator_status_r_sub;
+		uORB::Subscription estimator_odometry_r_sub;
 
 		uint64_t timestamp_last{0};
 
@@ -197,6 +209,7 @@ private:
 
 	// vehicle_local_position: reset counters
 	vehicle_local_position_s _local_position_last{};
+	vehicle_local_position_r_s _local_position_r_last{};
 	matrix::Vector2f _delta_xy_reset{};
 	float _delta_z_reset{0.f};
 	matrix::Vector2f _delta_vxy_reset{};
@@ -210,6 +223,7 @@ private:
 
 	// vehicle_odometry
 	vehicle_odometry_s _odometry_last{};
+	vehicle_odometry_r_s _odometry_r_last{};
 	uint8_t _odometry_reset_counter{0};
 
 	// vehicle_global_position: reset counters
@@ -239,6 +253,8 @@ private:
 	uORB::Publication<vehicle_local_position_s>    _vehicle_local_position_pub{ORB_ID(vehicle_local_position)};
 	uORB::Publication<vehicle_odometry_s>          _vehicle_odometry_pub{ORB_ID(vehicle_odometry)};
 	uORB::Publication<wind_s>             _wind_pub{ORB_ID(wind)};
+	uORB::Publication<vehicle_local_position_r_s>    _vehicle_local_position_r_pub{ORB_ID(vehicle_local_position_r)};
+	uORB::Publication<vehicle_odometry_r_s>          _vehicle_odometry_r_pub{ORB_ID(vehicle_odometry_r)};
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::EKF2_SEL_ERR_RED>) _param_ekf2_sel_err_red,

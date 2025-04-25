@@ -44,9 +44,9 @@ static constexpr float kDefaultExternalPosAccuracy = 50.0f; // [m]
 static constexpr float kMaxDelaySecondsExternalPosMeasurement = 15.0f; // [s]
 
 pthread_mutex_t ekfr_module_mutex = PTHREAD_MUTEX_INITIALIZER;
-static px4::atomic<EKFR *> _objects[EKFR_MAX_INSTANCES] {};
+static px4::atomic<EKFR *> _objects[EKF2_MAX_INSTANCES] {};
 #if defined(CONFIG_EKFR_MULTI_INSTANCE)
-static px4::atomic<EKFRSelector *> _ekfr_selector {nullptr};
+static px4::atomic<EKF2Selector *> _ekfr_selector {nullptr};
 #endif // CONFIG_EKFR_MULTI_INSTANCE
 
 EKFR::EKFR(bool multi_mode, const px4::wq_config_t &config, bool replay_mode):
@@ -2758,9 +2758,9 @@ int EKFR::task_spawn(int argc, char *argv[])
 	}
 
 	if (multi_mode && !replay_mode) {
-		// Start EKFRSelector if it's not already running
+		// Start EKF2Selector if it's not already running
 		if (_ekfr_selector.load() == nullptr) {
-			EKFRSelector *inst = new EKFRSelector();
+			EKF2Selector *inst = new EKF2Selector();
 
 			if (inst) {
 				_ekfr_selector.store(inst);
@@ -2772,7 +2772,7 @@ int EKFR::task_spawn(int argc, char *argv[])
 		}
 
 		const hrt_abstime time_started = hrt_absolute_time();
-		const int multi_instances = math::min(imu_instances * mag_instances, static_cast<int32_t>(EKFR_MAX_INSTANCES));
+		const int multi_instances = math::min(imu_instances * mag_instances, static_cast<int32_t>(EKF2_MAX_INSTANCES));
 		int multi_instances_allocated = 0;
 
 		// allocate EKFR instances until all found or arming
@@ -2952,7 +2952,7 @@ extern "C" __EXPORT int ekfr_main(int argc, char *argv[])
 			}
 #endif // CONFIG_EKFR_VERBOSE_STATUS
 
-			for (int i = 0; i < EKFR_MAX_INSTANCES; i++) {
+			for (int i = 0; i < EKF2_MAX_INSTANCES; i++) {
 				if (_objects[i].load()) {
 					PX4_INFO_RAW("\n");
 					_objects[i].load()->print_status(verbose_status);
@@ -2973,7 +2973,7 @@ extern "C" __EXPORT int ekfr_main(int argc, char *argv[])
 		if (argc > 2) {
 			int instance = atoi(argv[2]);
 
-			if (instance >= 0 && instance < EKFR_MAX_INSTANCES) {
+			if (instance >= 0 && instance < EKF2_MAX_INSTANCES) {
 				PX4_INFO("stopping instance %d", instance);
 				EKFR *inst = _objects[instance].load();
 
@@ -3001,7 +3001,7 @@ extern "C" __EXPORT int ekfr_main(int argc, char *argv[])
 			}
 #endif // CONFIG_EKFR_MULTI_INSTANCE
 
-			for (int i = 0; i < EKFR_MAX_INSTANCES; i++) {
+			for (int i = 0; i < EKF2_MAX_INSTANCES; i++) {
 				EKFR *inst = _objects[i].load();
 
 				if (inst) {
